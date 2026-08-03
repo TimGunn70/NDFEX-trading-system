@@ -1,0 +1,17 @@
+build/
+*.o
+bot
+listener
+oe_client
+tests/tmp/
+*.txt.log
+oe_log.txt
+pnl_log.txt
+pnl.txt
+.env
+.DS_Store
+.vscode/
+.idea/
+.cache/
+AUDIT.md
+CLAUDE.md
