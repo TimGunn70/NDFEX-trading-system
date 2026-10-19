@@ -1,0 +1,19 @@
+# Valid baseline. Deliberately fake addresses so fixtures are never confused
+# with the real config in config/bot.toml.
+[exchange]
+host = "10.0.0.1"
+port = 1234
+client_id = 8
+
+[auth]
+team_name = "group8"
+
+[etf_service]
+url = "http://10.0.0.2:5000"
+
+[market_data]
+live_addr   = "239.0.0.1"
+replay_addr = "239.0.0.2"
+port        = 12345
+local_iface = "10.0.0.3"
+

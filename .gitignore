@@ -4,7 +4,6 @@ bot
 listener
 oe_client
 tests/tmp/
-*.txt.log
 oe_log.txt
 pnl_log.txt
 pnl.txt

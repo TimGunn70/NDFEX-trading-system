@@ -1,0 +1,51 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          cmake --version
+          c++ --version
+
+      - name: Configure (Debug, ASan + UBSan)
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Debug -DENABLE_SANITIZERS=ON
+
+      # Tests are built and gated first, and on purpose. They link only the
+      # translation units they exercise, so they stay meaningful while the rest
+      # of the tree is still mid-rework.
+      - name: Build tests
+        run: cmake --build build --target test_config --parallel
+
+      - name: Run tests
+        run: ctest --test-dir build --output-on-failure
+
+      # The full build is reported but does not fail CI yet. Two known-broken
+      # targets, both tracked:
+      #   * bot        — src/main.cpp still references the credential constants
+      #                  deleted for AUDIT.md S3; needs the config wired in.
+      #   * ndfex_core — src/md/listener.cpp is being ported from epoll to
+      #                  poll() so it builds on macOS as well as Linux.
+      #
+      # Delete continue-on-error once both land, and set WARNINGS_AS_ERRORS=ON
+      # in the configure step above at the same time.
+      - name: Build everything (informational)
+        continue-on-error: true
+        run: cmake --build build --parallel
+
+  # A macOS job belongs here too, and is the reason listener.cpp is being moved
+  # off epoll. Add it once that port lands:
+  #
+  #   build-and-test-macos:
+  #     runs-on: macos-latest
+  #     ... same steps ...
