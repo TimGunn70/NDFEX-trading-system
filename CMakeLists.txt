@@ -4,10 +4,8 @@ project(ndfex_trading_system LANGUAGES CXX)
 # ---------------------------------------------------------------------------
 # Language baseline
 # ---------------------------------------------------------------------------
-# CXX_EXTENSIONS OFF means -std=c++17 rather than -std=gnu++17. GNU extensions
-# are how non-portable code sneaks in without a diagnostic; this repo already
-# has one such surprise (epoll in the market-data listener), so the compiler
-# should be the one telling us, not another machine's build.
+# Build with plain -std=c++17 instead of -std=gnu++17 to ensure the code 
+# builds with other compilers such as clang
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
