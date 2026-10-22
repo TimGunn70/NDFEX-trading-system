@@ -53,7 +53,7 @@ int main() {
 
 
     std::thread md_thread([&]() {
-        run_listener(sm, cfg->market_data);
+        run_listener(sm, cfg->market_data, global_shutdown);
     });
 
     // Wait for books to populate

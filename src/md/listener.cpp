@@ -18,7 +18,7 @@ struct BufferedMessage {
     size_t length;
 };
 
-void run_listener(SymbolManager& sm, const Config::MarketData& md) {
+void run_listener(SymbolManager& sm, const Config::MarketData& md, std::atomic<bool>& global_shutdown) {
     // order_id → symbol_id routing for delete/modify/trade messages
     std::unordered_map<uint64_t, uint32_t> order_to_symbol;
 
@@ -36,6 +36,7 @@ void run_listener(SymbolManager& sm, const Config::MarketData& md) {
     int epoll_fd = epoll_create(128);
     if (epoll_fd < 0) {
         std::cerr << "Failed to create epoll: " << strerror(errno) << "\n";
+        global_shutdown = true;
         return;
     }
 
@@ -88,6 +89,7 @@ void run_listener(SymbolManager& sm, const Config::MarketData& md) {
 
         if (nfds < 0) {
             std::cerr << "[Listener] epoll_wait failed: " << strerror(errno) << "\n";
+            global_shutdown = true;
             return;
         }
 
@@ -138,6 +140,7 @@ void run_listener(SymbolManager& sm, const Config::MarketData& md) {
             if (!caught_up && events[i].data.fd == live_sock) {
                 if (live_buffer.size() > 100000) {
                     std::cerr << "[Listener] FATAL: live buffer overflow\n";
+                    global_shutdown = true;
                     return;
                 }
                 BufferedMessage bm;
