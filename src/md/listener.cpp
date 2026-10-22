@@ -4,7 +4,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <unistd.h>
-#include <sys/epoll.h>
+#include <poll.h>
 #include <fcntl.h>
 #include <cstring>
 #include <iostream>
@@ -33,19 +33,13 @@ void run_listener(SymbolManager& sm, const Config::MarketData& md, std::atomic<b
     int live_sock   = create_multicast_socket(live_addr.c_str(),   live_port,   local_ip.c_str());
     int replay_sock = create_multicast_socket(replay_addr.c_str(), replay_port, local_ip.c_str());
 
-    int epoll_fd = epoll_create(128);
-    if (epoll_fd < 0) {
-        std::cerr << "Failed to create epoll: " << strerror(errno) << "\n";
-        global_shutdown = true;
-        return;
-    }
+    enum Feed { REPLAY, LIVE, FEED_COUNT };
+    constexpr const char* FEED_NAMES[FEED_COUNT] = { "replay", "live" };
 
-    epoll_event ev;
-    ev.events  = EPOLLIN;
-    ev.data.fd = replay_sock;
-    epoll_ctl(epoll_fd, EPOLL_CTL_ADD, replay_sock, &ev);
-    ev.data.fd = live_sock;
-    epoll_ctl(epoll_fd, EPOLL_CTL_ADD, live_sock, &ev);
+    pollfd fds[FEED_COUNT];
+
+    fds[REPLAY] = pollfd{replay_sock, POLLIN, 0};
+    fds[LIVE] = pollfd{live_sock, POLLIN, 0};
 
     char     buf[1500];
     bool     caught_up        = false;
@@ -83,18 +77,17 @@ void run_listener(SymbolManager& sm, const Config::MarketData& md, std::atomic<b
     std::cout << "[Listener] Starting market data feed...\n";
 
     while (true) {
-        epoll_event events[16];
         int timeout = caught_up ? -1 : 10;
-        int nfds    = epoll_wait(epoll_fd, events, 16, timeout);
+        int ready = poll(fds, FEED_COUNT, timeout);
 
-        if (nfds < 0) {
-            std::cerr << "[Listener] epoll_wait failed: " << strerror(errno) << "\n";
+        if (ready < 0) {
+            std::cerr << "[Listener] poll failed: " << strerror(errno) << "\n";
             global_shutdown = true;
             return;
         }
 
         // ── Catch-up: switch to live feed once replay goes quiet ─────────────
-        if (nfds == 0 && !caught_up && received_snapshot) {
+        if (ready == 0 && !caught_up && received_snapshot) {
             if (++no_replay_count > 100) {
                 std::cout << "[Listener] Caught up — draining "
                           << live_buffer.size() << " buffered messages\n";
@@ -132,12 +125,22 @@ void run_listener(SymbolManager& sm, const Config::MarketData& md, std::atomic<b
         }
 
         // ── Process incoming packets ──────────────────────────────────────────
-        for (int i = 0; i < nfds; ++i) {
-            ssize_t bytes = read(events[i].data.fd, buf, sizeof(buf));
+        for (int i = 0; i < FEED_COUNT; ++i) {
+            if (fds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
+                global_shutdown = true;
+                std::cerr << "[Listener] FATAL: " << FEED_NAMES[i] 
+                          << " feed socket error (revents=0x" << std::hex << fds[i].revents
+                          << std::dec << ")\n";
+                return;
+            }
+
+            if (!(fds[i].revents & POLLIN)) continue;
+
+            ssize_t bytes = read(fds[i].fd, buf, sizeof(buf));
             if (bytes <= 0) continue;
 
             // Buffer live messages until we've caught up with replay
-            if (!caught_up && events[i].data.fd == live_sock) {
+            if (!caught_up && i == LIVE) {
                 if (live_buffer.size() > 100000) {
                     std::cerr << "[Listener] FATAL: live buffer overflow\n";
                     global_shutdown = true;
@@ -225,7 +228,6 @@ void run_listener(SymbolManager& sm, const Config::MarketData& md, std::atomic<b
         }
     }
 
-    close(epoll_fd);
     close(live_sock);
     close(replay_sock);
 }
