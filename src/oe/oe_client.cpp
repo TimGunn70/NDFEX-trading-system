@@ -6,11 +6,12 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <utility>
 
 std::ofstream logfile("oe_log.txt");
 
 OEClient::OEClient(std::string host, int port)
-    : host_(host), port_(port), sock_fd_(-1), session_id_(0), seq_num_(0) {}
+    : host_(std::move(host)), port_(port), sock_fd_(-1), session_id_(0), seq_num_(0) {}
 
 OEClient::~OEClient() {
     if (sock_fd_ >= 0) close(sock_fd_);
