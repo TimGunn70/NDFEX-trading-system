@@ -19,7 +19,7 @@ jobs:
           c++ --version
 
       - name: Configure (Debug, ASan + UBSan)
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Debug -DENABLE_SANITIZERS=ON
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Debug -DENABLE_SANITIZERS=ON -DWARNINGS_AS_ERRORS=ON
 
       # Tests are built and gated first, and on purpose. They link only the
       # translation units they exercise, so they stay meaningful while the rest
