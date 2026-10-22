@@ -30,17 +30,7 @@ jobs:
       - name: Run tests
         run: ctest --test-dir build --output-on-failure
 
-      # The full build is reported but does not fail CI yet. Two known-broken
-      # targets, both tracked:
-      #   * bot        — src/main.cpp still references the credential constants
-      #                  deleted for AUDIT.md S3; needs the config wired in.
-      #   * ndfex_core — src/md/listener.cpp is being ported from epoll to
-      #                  poll() so it builds on macOS as well as Linux.
-      #
-      # Delete continue-on-error once both land, and set WARNINGS_AS_ERRORS=ON
-      # in the configure step above at the same time.
-      - name: Build everything (informational)
-        continue-on-error: true
+      - name: Build everything
         run: cmake --build build --parallel
 
   # A macOS job belongs here too, and is the reason listener.cpp is being moved
