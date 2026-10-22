@@ -3,6 +3,7 @@
 
 #include <functional>
 #include <unordered_set>
+#include <string>
 #include "oe_messages.h"
 #include "iorder_sender.h"
 
@@ -16,7 +17,7 @@ struct FillEvent {
 
 class OEClient : public IOrderSender {
 public:
-    OEClient(const char* host, int port);
+    OEClient(std::string host, int port);
     ~OEClient();
 
     bool connect();
@@ -47,7 +48,7 @@ public:
     void set_on_close (CloseCb  cb) { on_close_cb_  = cb; }
 
 private:
-    const char* host_;
+    std::string host_;
     int         port_;
     int         sock_fd_;
     uint64_t    session_id_;

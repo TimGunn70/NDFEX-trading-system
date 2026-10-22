@@ -9,7 +9,7 @@
 
 std::ofstream logfile("oe_log.txt");
 
-OEClient::OEClient(const char* host, int port)
+OEClient::OEClient(std::string host, int port)
     : host_(host), port_(port), sock_fd_(-1), session_id_(0), seq_num_(0) {}
 
 OEClient::~OEClient() {
@@ -24,7 +24,7 @@ bool OEClient::connect() {
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port_);
-    inet_pton(AF_INET, host_, &addr.sin_addr);
+    inet_pton(AF_INET, host_.c_str(), &addr.sin_addr);
 
     if (::connect(sock_fd_, (sockaddr*)&addr, sizeof(addr)) < 0) {
         std::cerr << "Connect failed: " << strerror(errno) << std::endl;

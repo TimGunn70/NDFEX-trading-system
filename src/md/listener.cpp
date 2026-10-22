@@ -18,20 +18,20 @@ struct BufferedMessage {
     size_t length;
 };
 
-void run_listener(SymbolManager& sm) {
+void run_listener(SymbolManager& sm, const Config::MarketData& md) {
     // order_id → symbol_id routing for delete/modify/trade messages
     std::unordered_map<uint64_t, uint32_t> order_to_symbol;
 
     std::queue<BufferedMessage> live_buffer;
 
-    const char* live_addr   = "239.0.0.1";
-    const int   live_port   = 12345;
-    const char* replay_addr = "239.0.0.2";
-    const int   replay_port = 12345;
-    const char* local_ip    = "192.168.13.16";
+    std::string live_addr   = md.live_addr;
+    const int   live_port   = md.port;
+    std::string replay_addr = md.replay_addr;
+    const int   replay_port = md.port;
+    std::string local_ip    = md.local_iface;
 
-    int live_sock   = create_multicast_socket(live_addr,   live_port,   local_ip);
-    int replay_sock = create_multicast_socket(replay_addr, replay_port, local_ip);
+    int live_sock   = create_multicast_socket(live_addr.c_str(),   live_port,   local_ip.c_str());
+    int replay_sock = create_multicast_socket(replay_addr.c_str(), replay_port, local_ip.c_str());
 
     int epoll_fd = epoll_create(128);
     if (epoll_fd < 0) {

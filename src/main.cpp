@@ -11,29 +11,35 @@
 #include "etf_client.h"
 #include "etf_arb.h"
 #include "listener.h"
-
+#include "config.h"
 
 //static constexpr uint32_t GOLD_TICK = 10;
 static constexpr uint32_t BLUE_TICK = 5;
 //static constexpr int32_t  MM_POSITION_LIMIT = 6;
 
 int main() {
+    std::string error;
+    std::optional<Config> cfg = load_config("config/bot.toml", error);
+    if (!cfg) {
+        std::cerr << "config/bot.toml: " << error << "\n";
+        return 1;
+    }
     SymbolManager       sm;
     std::atomic<bool>   global_shutdown{false};
 
     std::unordered_map<uint64_t, std::pair<uint32_t, SIDE>> mm_order_map;
 
-    OEClient oe(EXCHANGE_HOST, EXCHANGE_PORT);
+    OEClient oe(cfg->exchange.host, cfg->exchange.port);
     if (!oe.connect()) {
         std::cerr << "Failed to connect to exchange\n";
         return 1;
     }
-    if (!oe.login(TEAM_NAME, PASSWORD, CLIENT_ID)) {
+    if (!oe.login(cfg->auth.team_name.c_str(), cfg->auth.password.c_str(), cfg->exchange.client_id)) {
         std::cerr << "Login failed\n";
         return 1;
     }
 
-    ETFClient etf(ETF_URL, TEAM_NAME, PASSWORD);
+    ETFClient etf(cfg->etf_service.url, cfg->auth.team_name, cfg->auth.password);
     if (!etf.health_check()) {
         std::cerr << "ETF service unreachable\n";
         return 1;
@@ -47,7 +53,7 @@ int main() {
 
 
     std::thread md_thread([&]() {
-        run_listener(sm);
+        run_listener(sm, cfg->market_data);
     });
 
     // Wait for books to populate
