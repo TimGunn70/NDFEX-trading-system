@@ -28,12 +28,10 @@ jobs:
       # Tests are built and gated first, and on purpose. They link only the
       # translation units they exercise, so they stay meaningful while the rest
       # of the tree is still mid-rework.
-      - name: Build tests
-        run: cmake --build build --target test_config --parallel
+      - name: Build everything
+        run: cmake --build build --parallel
 
       - name: Run tests
         run: ctest --test-dir build --output-on-failure
 
-      - name: Build everything
-        run: cmake --build build --parallel
 
