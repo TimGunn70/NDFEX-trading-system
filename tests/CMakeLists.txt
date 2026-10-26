@@ -35,13 +35,18 @@ ndfex_test_case(test_config
 )
 target_include_directories(test_config PRIVATE ${CMAKE_SOURCE_DIR}/src/common)
 
+# C1 — position, average entry, and realized PnL in SymbolManager::on_fill.
+ndfex_test_case(test_symbol_manager
+    test_symbol_manager.cpp
+    ${CMAKE_SOURCE_DIR}/src/md/symbol_manager.cpp
+    ${CMAKE_SOURCE_DIR}/src/md/orderbook.cpp
+)
+target_include_directories(test_symbol_manager PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/common
+    ${CMAKE_SOURCE_DIR}/src/md
+)
+
 # --- Tests still to be written (AUDIT.md §5 step 2) ------------------------
-#
-#   test_symbol_manager   C1 — short-position PnL. Add with:
-#                             ndfex_test_case(test_symbol_manager
-#                                 test_symbol_manager.cpp
-#                                 ${CMAKE_SOURCE_DIR}/src/md/symbol_manager.cpp
-#                                 ${CMAKE_SOURCE_DIR}/src/md/orderbook.cpp)
 #
 #   test_oe_framing       P2 — malformed wire data: length < sizeof(header),
 #                              length > buffer, zero-length snapshot records.
