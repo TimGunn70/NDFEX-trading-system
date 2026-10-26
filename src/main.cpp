@@ -13,8 +13,6 @@
 #include "listener.h"
 #include "config.h"
 
-//static constexpr uint32_t GOLD_TICK = 10;
-static constexpr uint32_t BLUE_TICK = 5;
 //static constexpr int32_t  MM_POSITION_LIMIT = 6;
 
 int main() {

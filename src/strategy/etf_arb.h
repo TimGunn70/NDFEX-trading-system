@@ -28,7 +28,7 @@ private:
     SymbolManager&     sm_;
     OEClient&          oe_;
     ETFClient&         etf_;
-    std::atomic<bool>& global_shutdown_;
+    [[maybe_unused]] std::atomic<bool>& global_shutdown_; // TODO(S1/P4): arb loops must check this
     std::atomic<bool>  running_{true};
     std::atomic<uint64_t> next_order_id_{1000};
     std::atomic<bool> arb_in_progress_{false};

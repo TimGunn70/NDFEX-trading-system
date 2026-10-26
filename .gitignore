@@ -1,5 +1,4 @@
-build/
-build-linux/
+build*/
 *.o
 bot
 listener
