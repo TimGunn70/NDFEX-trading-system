@@ -46,9 +46,22 @@ target_include_directories(test_symbol_manager PRIVATE
     ${CMAKE_SOURCE_DIR}/src/md
 )
 
+# P2 — snapshot parser against malformed packets. Pure function, no sockets.
+ndfex_test_case(test_snapshot_parser
+    test_snapshot_parser.cpp
+    ${CMAKE_SOURCE_DIR}/src/md/snapshot_parser.cpp
+)
+target_include_directories(test_snapshot_parser PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/common
+    ${CMAKE_SOURCE_DIR}/src/md
+)
+# A zero header.length used to spin forever. If that regresses, fail in
+# seconds instead of hanging CI until the job-level timeout.
+set_tests_properties(test_snapshot_parser PROPERTIES TIMEOUT 10)
+
 # --- Tests still to be written (AUDIT.md §5 step 2) ------------------------
 #
-#   test_oe_framing       P2 — malformed wire data: length < sizeof(header),
-#                              length > buffer, zero-length snapshot records.
+#   test_oe_framing       P2 — malformed OE responses in read_response():
+#                              length < sizeof(header), length > buffer.
 #
 #   test_send_loop        P3 — short writes and a closed peer.
