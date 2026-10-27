@@ -30,13 +30,7 @@
 // SnapshotParseResult's namespace, so argument-dependent lookup finds this
 // from inside testing::to_str. (In an anonymous namespace, ADL would miss it.)
 static std::ostream& operator<<(std::ostream& os, SnapshotParseResult r) {
-    switch (r) {
-        case SnapshotParseResult::OK:                    return os << "OK";
-        case SnapshotParseResult::NOT_ENOUGH_BYTES:      return os << "NOT_ENOUGH_BYTES";
-        case SnapshotParseResult::INVALID_HEADER_LENGTH: return os << "INVALID_HEADER_LENGTH";
-        case SnapshotParseResult::UNKNOWN_MESSAGE_TYPE:  return os << "UNKNOWN_MESSAGE_TYPE";
-    }
-    return os << "SnapshotParseResult(" << static_cast<int>(r) << ")";
+    return os << to_string(r);
 }
 
 namespace {
@@ -270,6 +264,18 @@ TEST(counts_promise_more_orders_than_present) {
     EXPECT_TRUE(out.empty());
 }
 
+TEST(order_counts_overflow_uint32) {
+    // bid_count + ask_count in uint32_t arithmetic wraps to 0, which would
+    // accept a snapshot claiming ~4 billion orders as an empty book. The sum
+    // must be computed in a wider type; then the very first order is missing.
+    Packet p;
+    p.snapshot(SYM_A, /*bids=*/0xFFFFFFFFu, /*asks=*/1, 100);
+
+    std::vector<Snapshot> out;
+    EXPECT_EQ(parse(p, out), SnapshotParseResult::NOT_ENOUGH_BYTES);
+    EXPECT_TRUE(out.empty());
+}
+
 TEST(order_cut_off_mid_struct) {
     Packet p;
     p.snapshot(SYM_A, 1, 0, 100)
@@ -295,14 +301,26 @@ TEST(trailing_bytes_after_valid_snapshot) {
 TEST(every_truncation_of_a_valid_packet_fails_cleanly) {
     // Brute force: cut a valid two-snapshot packet at every byte offset. Each
     // prefix must be rejected with `out` empty -- and, under ASan, must not
-    // read past its end. (Offsets that land exactly on a message boundary
-    // still fail: the counts promise orders that are not there.)
+    // read past its end.
+    //
+    // One exception: the cut that lands exactly after snapshot A's last order.
+    // That prefix is a complete, valid one-snapshot packet, so it must parse.
     const Packet full = valid_two_symbol_packet();
     const size_t n = full.bytes().size();
+    const size_t end_of_a = SNAP_LEN + 2 * ORDER_LEN;
+
+    {
+        Packet p = full;
+        p.truncate(end_of_a);
+        std::vector<Snapshot> out;
+        EXPECT_EQ(parse(p, out), SnapshotParseResult::OK);
+        EXPECT_EQ(out.size(), 1u);
+    }
 
     size_t bad = 0;
     size_t first_bad = 0;
     for (size_t len = 0; len < n; ++len) {
+        if (len == end_of_a) continue;
         Packet p = full;
         p.truncate(len);
 
@@ -391,10 +409,15 @@ TEST(wrong_type_where_order_expected) {
 
 TEST(next_snapshot_arrives_before_promised_orders) {
     // A has 2 bids promised but only 1 arrives before B's snapshot_info.
+    // B carries an order so enough bytes follow for a whole new_order; that
+    // way the parser gets past its size check and must notice the TYPE is
+    // wrong. (Without B's order this would be NOT_ENOUGH_BYTES, which tests
+    // check order rather than the broken promise.)
     Packet p;
     p.snapshot(SYM_A, 2, 0, 100)
          .order(11, SYM_A, SIDE::BUY, 5, 99)
-     .snapshot(SYM_B, 0, 0, 200);
+     .snapshot(SYM_B, 1, 0, 200)
+         .order(21, SYM_B, SIDE::BUY, 5, 50);
 
     std::vector<Snapshot> out;
     EXPECT_EQ(parse(p, out), SnapshotParseResult::UNKNOWN_MESSAGE_TYPE);

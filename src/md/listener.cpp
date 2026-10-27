@@ -1,4 +1,5 @@
 #include "listener.h"
+#include "snapshot_parser.h"
 
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -23,6 +24,7 @@ void run_listener(SymbolManager& sm, const Config::MarketData& md, std::atomic<b
     std::unordered_map<uint64_t, uint32_t> order_to_symbol;
 
     std::queue<BufferedMessage> live_buffer;
+    std::vector<Snapshot> snapshots;
 
     std::string live_addr   = md.live_addr;
     const int   live_port   = md.port;
@@ -50,7 +52,7 @@ void run_listener(SymbolManager& sm, const Config::MarketData& md, std::atomic<b
     // ── Inline helpers ────────────────────────────────────────────────────────
 
     // Route a new_order into SymbolManager and record order→symbol mapping
-    auto dispatch_new_order = [&](new_order* msg) {
+    auto dispatch_new_order = [&](const new_order* msg) {
         sm.on_new_order(msg->symbol, msg);
         order_to_symbol[msg->order_id] = msg->symbol;
     };
@@ -157,41 +159,37 @@ void run_listener(SymbolManager& sm, const Config::MarketData& md, std::atomic<b
 
             // ── Snapshot ──────────────────────────────────────────────────────
             if (hdr->magic_number == SNAPSHOT_MAGIC_NUMBER) {
-                ssize_t offset = 0;
-                while (offset < bytes) {
-                    md_header* shdr = reinterpret_cast<md_header*>(buf + offset);
-                    if (shdr->msg_type != MSG_TYPE::SNAPSHOT_INFO) break;
+                SnapshotParseResult result = parse_snapshot(buf, static_cast<size_t>(bytes), snapshots);
+                
+                no_replay_count = 0;
 
-                    snapshot_info* snap = reinterpret_cast<snapshot_info*>(buf + offset);
-                    uint32_t symbol     = snap->symbol;
+                if (result != SnapshotParseResult::OK) {
+                    // Book untouched, received_snapshot unchanged: wait for the next one.
+                    std::cerr << "[Listener] Dropped malformed snapshot packet ("
+                              << bytes << " bytes): " << to_string(result) << "\n";
+                    continue;
+                }
 
-                    sm.reset_book(symbol);
+                for (const auto& snapshot: snapshots) {
+                    sm.reset_book(snapshot.symbol);
 
                     // Remove stale order→symbol mappings for this symbol
                     for (auto it = order_to_symbol.begin(); it != order_to_symbol.end(); ) {
-                        if (it->second == symbol) it = order_to_symbol.erase(it);
+                        if (it->second == snapshot.symbol) it = order_to_symbol.erase(it);
                         else ++it;
                     }
 
-                    std::cout << "[Listener] Snapshot: symbol=" << symbol
-                              << " seq=" << snap->last_md_seq_num
-                              << " bids=" << snap->bid_count
-                              << " asks=" << snap->ask_count << "\n";
+                    std::cout << "[Listener] Snapshot: symbol=" << snapshot.symbol
+                              << " seq=" << snapshot.last_md_seq_num
+                              << " orders=" << snapshot.orders.size() << "\n";
 
-                    offset += snap->header.length;
-
-                    uint32_t total_orders = snap->bid_count + snap->ask_count;
-                    for (uint32_t j = 0; j < total_orders && offset < bytes; ++j) {
-                        if (offset + (ssize_t)sizeof(new_order) > bytes) break;
-                        new_order* om = reinterpret_cast<new_order*>(buf + offset);
-                        if (om->header.msg_type != MSG_TYPE::NEW_ORDER) break;
-                        dispatch_new_order(om);
-                        offset += om->header.length;
+                    for (const auto& order: snapshot.orders) {
+                        dispatch_new_order(&order);
                     }
 
-                    received_snapshot = true;
-                    no_replay_count   = 0;
                 }
+
+                received_snapshot = true;
                 continue;
             }
 
