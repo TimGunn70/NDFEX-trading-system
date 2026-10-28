@@ -86,6 +86,7 @@ add_library(ndfex_core STATIC
     src/md/symbol_manager.cpp
     src/oe/etf_client.cpp
     src/oe/oe_client.cpp
+    src/oe/oe_framing.cpp
     src/strategy/etf_arb.cpp
 )
 

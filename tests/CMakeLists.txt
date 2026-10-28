@@ -59,9 +59,19 @@ target_include_directories(test_snapshot_parser PRIVATE
 # seconds instead of hanging CI until the job-level timeout.
 set_tests_properties(test_snapshot_parser PROPERTIES TIMEOUT 10)
 
+# P2 (second half) — OE response framing over a real byte stream
+# (socketpair), against malformed lengths, truncation, and EINTR.
+ndfex_test_case(test_oe_framing
+    test_oe_framing.cpp
+    ${CMAKE_SOURCE_DIR}/src/oe/oe_framing.cpp
+)
+target_include_directories(test_oe_framing PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/common
+    ${CMAKE_SOURCE_DIR}/src/oe
+)
+# Reading a body before validating its length blocks forever in one test.
+set_tests_properties(test_oe_framing PROPERTIES TIMEOUT 10)
+
 # --- Tests still to be written (AUDIT.md §5 step 2) ------------------------
-#
-#   test_oe_framing       P2 — malformed OE responses in read_response():
-#                              length < sizeof(header), length > buffer.
 #
 #   test_send_loop        P3 — short writes and a closed peer.
