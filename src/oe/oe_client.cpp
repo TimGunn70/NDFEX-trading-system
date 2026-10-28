@@ -1,4 +1,6 @@
 #include "oe_client.h"
+#include "oe_framing.h"
+
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
@@ -54,7 +56,7 @@ bool OEClient::login(const char* username, const char* password, uint32_t client
 
     char buf[256];
     size_t len;
-    if (!read_response(buf, len)) return false;
+    if (!read_response(buf, sizeof(buf), len)) return false;
 
     auto* resp = reinterpret_cast<ndfex::oe::login_response*>(buf);
     if (resp->status != (uint8_t)ndfex::oe::LOGIN_STATUS::SUCCESS) {
@@ -72,34 +74,27 @@ void OEClient::send_raw(const void* data, size_t len) {
     log_message("SENT", data, len);
 }
 
-bool OEClient::read_response(char* buf, size_t& out_len) {
-    ndfex::oe::oe_response_header hdr;
-    size_t total = 0;
-    while (total < sizeof(hdr)) {
-        ssize_t n = recv(sock_fd_, (char*)&hdr + total, sizeof(hdr) - total, 0);
-        if (n <= 0) return false;
-        total += n;
-    }
+bool OEClient::read_response(char* buf, size_t buf_cap, size_t& out_len) {
+    FrameReadResult result = read_frame(sock_fd_, buf, buf_cap, out_len);
 
-    memcpy(buf, &hdr, sizeof(hdr));
-    size_t remaining = hdr.length - sizeof(hdr);
-    total = 0;
-    while (total < remaining) {
-        ssize_t n = recv(sock_fd_, buf + sizeof(hdr) + total, remaining - total, 0);
-        if (n <= 0) return false;
-        total += n;
+    if (result == FrameReadResult::OK) {
+        log_message("RECV", buf, out_len);
+        return true;
     }
-
-    out_len = hdr.length;
-    log_message("RECV", buf, out_len);
-    return true;
+    else {
+        // Every failure leaves this connection unusable: once framing is lost
+        // on a TCP stream there is no way to find the start of the next message.
+        std::cerr << "OE read_response failed: " << to_string(result)
+                  << " (fd=" << sock_fd_ << ")" << std::endl;
+        return false;
+    }
 }
 
 bool OEClient::wait_for_response() {
     char buf[256];
     size_t len;
     while (true) {
-        if (!read_response(buf, len)) return false;
+        if (!read_response(buf, sizeof(buf), len)) return false;
         auto* hdr = reinterpret_cast<ndfex::oe::oe_response_header*>(buf);
 
         if (hdr->msg_type == (uint8_t)ndfex::oe::MSG_TYPE::ACK) {

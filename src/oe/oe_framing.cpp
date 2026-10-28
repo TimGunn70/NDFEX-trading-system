@@ -5,6 +5,7 @@
 
 #include <cstring>
 #include <sys/socket.h>
+#include <cerrno>
 
 
 
@@ -17,16 +18,33 @@ const char* to_string(FrameReadResult result) {
         case FrameReadResult::SERVER_CLOSED_CONNECTION: return "SERVER_CLOSED_CONNECTION";
         case FrameReadResult::CONNECTION_INTERRUPTED: return "CONNECTION_INTERRUPTED";
     }
-    return "UNKOWN_READ_RESULT";
+    return "UNKNOWN_READ_RESULT";
 }
 
+// On OK, buf[0, out_len) holds the complete frame including the header, and out_len == hdr.length.
+// On any other result, buf and out_len are unspecified. The connection is unusable after any failure.
 FrameReadResult read_frame(int fd, char* buf, size_t buf_cap, size_t& out_len) {
     ndfex::oe::oe_response_header hdr;
     size_t total = 0;
     while (total < sizeof(hdr)) {
         ssize_t n = recv(fd, (char*)&hdr + total, sizeof(hdr) - total, 0);
-        if (n <= 0) return FrameReadResult::SERVER_CLOSED_CONNECTION;
+        if (n < 0) { 
+            if (errno == EINTR) continue;
+            return FrameReadResult::RECV_FAILED;
+        }
+        if (n == 0) {
+            if (total == 0) return FrameReadResult::SERVER_CLOSED_CONNECTION;
+            else return FrameReadResult::CONNECTION_INTERRUPTED;
+        }
         total += n;
+    }
+
+    if (hdr.length > buf_cap) {
+        return FrameReadResult::LENGTH_EXCEEDS_BUFFER;
+    }
+
+    if (hdr.length < sizeof(hdr)) {
+        return FrameReadResult::LENGTH_BELOW_HEADER;
     }
 
     memcpy(buf, &hdr, sizeof(hdr));
@@ -34,7 +52,11 @@ FrameReadResult read_frame(int fd, char* buf, size_t buf_cap, size_t& out_len) {
     total = 0;
     while (total < remaining) {
         ssize_t n = recv(fd, buf + sizeof(hdr) + total, remaining - total, 0);
-        if (n <= 0) return FrameReadResult::SERVER_CLOSED_CONNECTION;
+        if (n < 0) { 
+            if (errno == EINTR) continue;
+            return FrameReadResult::RECV_FAILED;
+        }
+        if (n == 0) return FrameReadResult::CONNECTION_INTERRUPTED;
         total += n;
     }
 

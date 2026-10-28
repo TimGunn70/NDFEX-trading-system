@@ -62,7 +62,7 @@ private:
     CloseCb  on_close_cb_;
 
     void send_raw(const void* data, size_t len);
-    bool read_response(char* buf, size_t& len);
+    bool read_response(char* buf, size_t buf_cap, size_t& len);
     void log_message(const char* direction, const void* data, size_t len);
 };
 
