@@ -72,6 +72,18 @@ target_include_directories(test_oe_framing PRIVATE
 # Reading a body before validating its length blocks forever in one test.
 set_tests_properties(test_oe_framing PROPERTIES TIMEOUT 10)
 
+# P6 — market-data packets size-checked before any struct is read.
+# Pure function over a byte buffer, no sockets.
+ndfex_test_case(test_md_packet_validator
+    test_md_packet_validator.cpp
+    ${CMAKE_SOURCE_DIR}/src/md/md_packet_validator.cpp
+)
+target_include_directories(test_md_packet_validator PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/common
+    ${CMAKE_SOURCE_DIR}/src/md
+)
+set_tests_properties(test_md_packet_validator PROPERTIES TIMEOUT 10)
+
 # --- Tests still to be written (AUDIT.md §5 step 2) ------------------------
 #
 #   test_send_loop        P3 — short writes and a closed peer.
