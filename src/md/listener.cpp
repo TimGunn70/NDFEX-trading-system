@@ -1,5 +1,6 @@
 #include "listener.h"
 #include "snapshot_parser.h"
+#include "md_packet_validator.h"
 
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -100,7 +101,9 @@ void run_listener(SymbolManager& sm, const Config::MarketData& md, std::atomic<b
                     memcpy(buf, bm.data, bm.length);
 
                     md_header* hdr = reinterpret_cast<md_header*>(buf);
-                    if (hdr->magic_number == MAGIC_NUMBER) {
+                    MdPacketResult r = validate_packet(buf, bm.length);
+
+                    if (r == MdPacketResult::OK) {
                         switch (hdr->msg_type) {
                             case MSG_TYPE::NEW_ORDER:
                                 dispatch_new_order(reinterpret_cast<new_order*>(buf));
@@ -117,6 +120,10 @@ void run_listener(SymbolManager& sm, const Config::MarketData& md, std::atomic<b
                             default:
                                 break;
                         }
+                    }
+                    else {
+                        std::cerr << "[Listener] Dropped buffered live packet ("
+                                  << bm.length << " bytes): " << to_string(r) << "\n";
                     }
                     live_buffer.pop();
                 }
@@ -155,6 +162,13 @@ void run_listener(SymbolManager& sm, const Config::MarketData& md, std::atomic<b
                 continue;
             }
 
+            if (!has_md_header(static_cast<size_t>(bytes))) {
+                std::cerr << "[Listener] Dropped " << FEED_NAMES[i] << " packet: "
+                          << bytes << " bytes, shorter than md_header ("
+                          << sizeof(md_header) << ")\n";
+                continue;
+            }
+            
             md_header* hdr = reinterpret_cast<md_header*>(buf);
 
             // ── Snapshot ──────────────────────────────────────────────────────
@@ -194,7 +208,12 @@ void run_listener(SymbolManager& sm, const Config::MarketData& md, std::atomic<b
             }
 
             // ── Normal market data ────────────────────────────────────────────
-            if (hdr->magic_number != MAGIC_NUMBER) continue;
+            MdPacketResult r = validate_packet(buf, static_cast<size_t>(bytes));
+            if (r != MdPacketResult::OK) {
+                std::cerr << "[Listener] Dropped " << FEED_NAMES[i] << " packet ("
+                          << bytes << " bytes): " << to_string(r) << "\n";
+                continue;
+            }
 
             switch (hdr->msg_type) {
                 case MSG_TYPE::NEW_ORDER:
