@@ -84,6 +84,17 @@ target_include_directories(test_md_packet_validator PRIVATE
 )
 set_tests_properties(test_md_packet_validator PROPERTIES TIMEOUT 10)
 
+# M4 — multicast socket setup reports failure instead of exit(1), and does
+# not leak the fd. Uses real sockets, but no network setup or root.
+ndfex_test_case(test_multicast_socket
+    test_multicast_socket.cpp
+    ${CMAKE_SOURCE_DIR}/src/md/multicast_socket.cpp
+)
+target_include_directories(test_multicast_socket PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/md
+)
+set_tests_properties(test_multicast_socket PROPERTIES TIMEOUT 10)
+
 # --- Tests still to be written (AUDIT.md §5 step 2) ------------------------
 #
 #   test_send_loop        P3 — short writes and a closed peer.
