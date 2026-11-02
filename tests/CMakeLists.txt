@@ -95,6 +95,24 @@ target_include_directories(test_multicast_socket PRIVATE
 )
 set_tests_properties(test_multicast_socket PROPERTIES TIMEOUT 10)
 
+# M4 (second half) — run_listener startup failure stops the bot and closes
+# whatever it opened, instead of returning silently.
+ndfex_test_case(test_listener_startup
+    test_listener_startup.cpp
+    ${CMAKE_SOURCE_DIR}/src/md/listener.cpp
+    ${CMAKE_SOURCE_DIR}/src/md/multicast_socket.cpp
+    ${CMAKE_SOURCE_DIR}/src/md/md_packet_validator.cpp
+    ${CMAKE_SOURCE_DIR}/src/md/snapshot_parser.cpp
+    ${CMAKE_SOURCE_DIR}/src/md/symbol_manager.cpp
+    ${CMAKE_SOURCE_DIR}/src/md/orderbook.cpp
+)
+target_include_directories(test_listener_startup PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/common
+    ${CMAKE_SOURCE_DIR}/src/md
+)
+# A failure path that falls into the poll loop never returns.
+set_tests_properties(test_listener_startup PROPERTIES TIMEOUT 10)
+
 # --- Tests still to be written (AUDIT.md §5 step 2) ------------------------
 #
 #   test_send_loop        P3 — short writes and a closed peer.
