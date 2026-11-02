@@ -6,29 +6,44 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <cerrno>
-#include <cstdlib>
 #include <cstring>
 #include <iostream>
 
-// Moved verbatim from listener.cpp so it can be unit-tested without linking
-// the whole listener. Behavior unchanged (still exit(1)s) — AUDIT.md M4.
-
+// Changed to return -1 instead of exiting when a system call fails, also logged setsockopt failure
 int create_multicast_socket(const char* mcast_addr, int port, const char* local_ip) {
     int fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd < 0) {
         std::cerr << "Failed to create socket: " << strerror(errno) << "\n";
-        exit(1);
+        return -1;
     }
 
     int reuse = 1;
-    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
-    setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse));
+ 
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0){
+        std::cerr << "setsockopt - SO_REUSEADDR failed: " << strerror(errno) << "\n";
+    }
+
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse)) < 0) {
+        std::cerr << "setsockopt - SO_REUSEPORT failed: " << strerror(errno) << "\n";
+    }
 
     int rcvbuf = 8 * 1024 * 1024;
-    setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
+    if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf)) < 0) {
+        std::cerr << "setsockopt - SO_RCVBUF failed: " << strerror(errno) << "\n";
+    }
 
     int flags = fcntl(fd, F_GETFL, 0);
-    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    if (flags == -1) {
+        std::cerr << "Failed to get file flags: " << strerror(errno) << "\n";
+        close(fd);
+        return -1;
+    }
+
+    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+        std::cerr << "Error setting non-blocking: " << strerror(errno) << "\n";
+        close(fd);
+        return -1;
+    }
 
     sockaddr_in addr{};
     addr.sin_family      = AF_INET;
@@ -37,7 +52,8 @@ int create_multicast_socket(const char* mcast_addr, int port, const char* local_
 
     if (bind(fd, (const sockaddr*)&addr, sizeof(addr)) < 0) {
         std::cerr << "Failed to bind: " << strerror(errno) << "\n";
-        exit(1);
+        close(fd);
+        return -1;
     }
 
     ip_mreq mreq{};
@@ -47,7 +63,8 @@ int create_multicast_socket(const char* mcast_addr, int port, const char* local_
     if (setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
         std::cerr << "Failed to join multicast group " << mcast_addr
                   << ": " << strerror(errno) << "\n";
-        exit(1);
+        close(fd);
+        return -1;
     }
 
     std::cout << "[Listener] Joined multicast " << mcast_addr << ":" << port << "\n";
