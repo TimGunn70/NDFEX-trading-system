@@ -82,6 +82,7 @@ add_library(ndfex_core STATIC
     src/common/config.cpp
     src/md/listener.cpp
     src/md/md_packet_validator.cpp
+    src/md/multicast_socket.cpp
     src/md/orderbook.cpp
     src/md/snapshot_parser.cpp
     src/md/symbol_manager.cpp
