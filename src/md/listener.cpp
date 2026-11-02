@@ -33,7 +33,19 @@ void run_listener(SymbolManager& sm, const Config::MarketData& md, std::atomic<b
     std::string local_ip    = md.local_iface;
 
     int live_sock   = create_multicast_socket(live_addr.c_str(),   live_port,   local_ip.c_str());
+    if (live_sock < 0) {
+        std::cerr << "[Listener] FATAL: Failed to create live socket\n";
+        global_shutdown = true;
+        return;
+    }
+
     int replay_sock = create_multicast_socket(replay_addr.c_str(), replay_port, local_ip.c_str());
+    if (replay_sock < 0) {
+        std::cerr << "[Listener] FATAL: Failed to create replay socket\n";
+        close(live_sock);
+        global_shutdown = true;
+        return;
+    }
 
     enum Feed { REPLAY, LIVE, FEED_COUNT };
     constexpr const char* FEED_NAMES[FEED_COUNT] = { "replay", "live" };
