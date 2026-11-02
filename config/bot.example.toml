@@ -1,0 +1,25 @@
+# Copy to config/bot.toml (gitignored) and fill in real values.
+# The password is never read from this file; export NDFEX_PASSWORD instead.
+
+[exchange]
+host = "0.0.0.0"          # order-entry gateway IP
+port = 0
+client_id = 0
+
+[auth]
+team_name = "your-team"
+# password comes from the NDFEX_PASSWORD env var — never from this file
+
+[etf_service]
+url = "http://0.0.0.0:5000"
+
+[market_data]
+live_addr   = "239.0.0.1"   # multicast group, live feed
+replay_addr = "239.0.0.2"   # multicast group, snapshot/replay feed
+port        = 0
+local_iface = "0.0.0.0"     # IP of the NIC joined to the multicast group
+
+[risk]
+position_limit    = 10
+mm_position_limit = 4
+pnl_floor         = -5000.0

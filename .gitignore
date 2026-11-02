@@ -14,3 +14,5 @@ pnl.txt
 .cache/
 AUDIT.md
 CLAUDE.md
+# Real config stays local; config/bot.example.toml is the template
+config/bot.toml
