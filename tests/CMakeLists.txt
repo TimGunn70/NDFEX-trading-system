@@ -113,6 +113,13 @@ target_include_directories(test_listener_startup PRIVATE
 # A failure path that falls into the poll loop never returns.
 set_tests_properties(test_listener_startup PROPERTIES TIMEOUT 10)
 
-# --- Tests still to be written (AUDIT.md §5 step 2) ------------------------
-#
-#   test_send_loop        P3 — short writes and a closed peer.
+# P3 — full-write loop: short writes, EINTR, and a closed peer (SIGPIPE).
+ndfex_test_case(test_send_all
+    test_send_all.cpp
+    ${CMAKE_SOURCE_DIR}/src/oe/oe_framing.cpp
+)
+target_include_directories(test_send_all PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/common
+    ${CMAKE_SOURCE_DIR}/src/oe
+)
+set_tests_properties(test_send_all PROPERTIES TIMEOUT 20)

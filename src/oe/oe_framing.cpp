@@ -62,3 +62,11 @@ FrameReadResult read_frame(int fd, char* buf, size_t buf_cap, size_t& out_len) {
     return FrameReadResult::OK;
 }
 
+bool disable_sigpipe(int /*fd*/) {
+    return true;
+}
+
+bool send_all(int /*fd*/ , const void* /*buf*/ , size_t /*len*/) {
+    return true;
+}
+
