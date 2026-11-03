@@ -4,6 +4,7 @@
 
 
 #include <cstring>
+#include <cstddef>
 #include <sys/socket.h>
 #include <cerrno>
 
@@ -62,11 +63,40 @@ FrameReadResult read_frame(int fd, char* buf, size_t buf_cap, size_t& out_len) {
     return FrameReadResult::OK;
 }
 
-bool disable_sigpipe(int /*fd*/) {
-    return true;
+bool disable_sigpipe(int fd) {
+    // For Mac OS
+    #ifdef SO_NOSIGPIPE
+        int on = 1;
+        return (setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &on, sizeof(on)) == 0);
+    #else
+        // No socket option needed since send_all passes MSG_NOSIGNAL on every call.
+        (void)fd;
+        return true;
+    #endif
 }
 
-bool send_all(int /*fd*/ , const void* /*buf*/ , size_t /*len*/) {
+bool send_all(int fd, const void* buf, size_t len) {
+    #ifdef MSG_NOSIGNAL
+        const int flags = MSG_NOSIGNAL;
+    #else
+        const int flags = 0;
+    #endif
+
+    const char* ptr = static_cast<const char *>(buf);
+    size_t remaining = len;
+
+    while (remaining > 0) {
+        ssize_t sent = send(fd, ptr, remaining, flags);
+
+        if (sent == -1 && errno != EINTR) {
+            return false;
+        }
+        else if (sent > 0) {
+            ptr += sent;
+            remaining -= static_cast<size_t>(sent);
+        }
+    }
+
     return true;
 }
 
