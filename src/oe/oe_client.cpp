@@ -33,6 +33,10 @@ bool OEClient::connect() {
         std::cerr << "Connect failed: " << strerror(errno) << std::endl;
         return false;
     }
+    if (!disable_sigpipe(sock_fd_)) {
+        std::cerr << "disable_sigpipe failed: " << strerror(errno) << "/n";
+        return false;
+    }
     std::cout << "Connected to " << host_ << ":" << port_ << std::endl;
     return true;
 }
@@ -52,7 +56,9 @@ bool OEClient::login(const char* username, const char* password, uint32_t client
     strncpy((char*)msg.username, username, 15);
     strncpy((char*)msg.password, password, 15);
 
-    send_raw(&msg, sizeof(msg));
+    if (!send_raw(&msg, sizeof(msg))) {
+        return false;
+    }
 
     char buf[256];
     size_t len;
@@ -69,9 +75,17 @@ bool OEClient::login(const char* username, const char* password, uint32_t client
     return true;
 }
 
-void OEClient::send_raw(const void* data, size_t len) {
-    send(sock_fd_, data, len, 0);
-    log_message("SENT", data, len);
+bool OEClient::send_raw(const void* data, size_t len) {
+    bool sent = send_all(sock_fd_, data, len);
+    if (sent) {
+        log_message("SENT", data, len);
+    }
+    else {
+        const int err = errno;  // read before any other call can overwrite it
+        std::cerr << "OE send_raw failed: " << strerror(err)
+                  << " (fd=" << sock_fd_ << ")" << std::endl;
+    }
+    return sent;
 }
 
 bool OEClient::read_response(char* buf, size_t buf_cap, size_t& out_len) {
@@ -165,7 +179,9 @@ bool OEClient::send_new_order(uint64_t order_id, uint32_t symbol,
     msg.price             = price;
     msg.flags             = 0;
 
-    send_raw(&msg, sizeof(msg));
+    if (!send_raw(&msg, sizeof(msg))) {
+        return false;
+    }
     return wait_for_response();
 }
 
@@ -185,7 +201,10 @@ void OEClient::send_new_order_no_wait(uint64_t order_id, uint32_t symbol,
     msg.price             = price;
     msg.flags             = 0;
 
-    send_raw(&msg, sizeof(msg));
+    if (!send_raw(&msg, sizeof(msg))) {
+       // TODO(C7): the failure is logged in send_raw but can't reach the caller, because the function returns void
+    }
+
     // No wait_for_response() — caller collects ACKs separately
 }
 
@@ -199,7 +218,9 @@ bool OEClient::delete_order(uint64_t order_id) {
     msg.header.session_id = session_id_;
     msg.order_id          = order_id;
 
-    send_raw(&msg, sizeof(msg));
+    if (!send_raw(&msg, sizeof(msg))) {
+        return false;
+    }
     return wait_for_response();
 }
 
@@ -216,8 +237,10 @@ bool OEClient::modify_order(uint64_t order_id, SIDE side,
     msg.side              = side;
     msg.quantity          = qty;
     msg.price             = price;
-
-    send_raw(&msg, sizeof(msg));
+    
+    if (!send_raw(&msg, sizeof(msg))) {
+        return false;
+    }
     return wait_for_response();
 }
 
