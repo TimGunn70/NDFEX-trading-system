@@ -1,4 +1,5 @@
 #include "etf_client.h"
+#include "oe_framing.h"
 
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -86,13 +87,19 @@ std::string ETFClient::send_http_request(const std::string& request) {
         std::cerr << "[ETFClient] connect() failed: " << strerror(errno) << "\n";
         return "";
     }
+
     freeaddrinfo(res);
 
-    // Send the full HTTP request string
-    ssize_t sent = send(sock, request.c_str(), request.size(), 0);
-    if (sent < 0) {
+    if (!disable_sigpipe(sock)) {
+        std::cerr << "[ETFClient] disable_sigpipe failed: " << strerror(errno) << "\n";
         close(sock);
-        std::cerr << "[ETFClient] send() failed\n";
+        return "";
+    }
+
+    // Send the full HTTP request string
+    if (!send_all(sock, request.c_str(), request.size())) {
+        std::cerr << "[ETFClient] send_all() failed\n";
+        close(sock);
         return "";
     }
 

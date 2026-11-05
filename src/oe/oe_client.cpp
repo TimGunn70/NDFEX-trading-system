@@ -34,7 +34,7 @@ bool OEClient::connect() {
         return false;
     }
     if (!disable_sigpipe(sock_fd_)) {
-        std::cerr << "disable_sigpipe failed: " << strerror(errno) << "/n";
+        std::cerr << "disable_sigpipe failed: " << strerror(errno) << "\n";
         return false;
     }
     std::cout << "Connected to " << host_ << ":" << port_ << std::endl;
