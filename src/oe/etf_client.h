@@ -30,9 +30,9 @@ struct ETFResult {
 // Thread safety: NOT thread-safe. Guard with an external mutex if needed.
 class ETFClient {
 public:
-    // base_url  : e.g. "http://129.74.160.245:5000"  (no trailing slash)
-    // team_name : your team login, e.g. "group8"
-    // password  : your team password
+    // base_url  : e.g. "http://<host>:5000"  (no trailing slash)
+    // team_name : team login, e.g. "group8"
+    // password  : team password
     ETFClient(const std::string& base_url,
               const std::string& team_name,
               const std::string& password);
@@ -53,7 +53,7 @@ public:
     std::unordered_map<std::string, int32_t> get_positions(int client_id);
 
 private:
-    std::string host_;      // e.g. "129.74.160.245"
+    std::string host_;      
     std::string port_;      // e.g. "5000"
     std::string team_name_;
     std::string password_;
