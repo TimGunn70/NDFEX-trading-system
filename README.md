@@ -53,7 +53,7 @@ test commit before its fix.
 | P3 | `send()` result ignored, SIGPIPE | `send_all` loop, SIGPIPE disabled on both platforms | `test_send_all` |
 | M4 | `exit(1)` in library code, silent listener failure | Errors returned; the bot shuts down if market data can't start | `test_multicast_socket`, `test_listener_startup` |
 | S2 | Repo didn't build | CMake, plus CI on Linux and macOS | CI |
-| S3 | Password committed | Read from an env var; real config stays local | — |
+| S3 | Password hard coded in the original repo | Read from an env var; real config stays local | — |
 
 87 tests across 8 suites, run under AddressSanitizer and UBSan in CI.
 
@@ -93,7 +93,9 @@ The tests don't need network access or an exchange.
 ## Running the bot
 
 The bot needs a live NDFEX exchange (the course's simulated exchange) to
-connect to.
+connect to. If the bot can access the exchange, it will start the market data
+listener, update the order book, and print PnL. However, it currently does not place any orders
+because the strategy is turned off (S1). If it cannot connect, it will exit right away.
 
 ```sh
 cp config/bot.example.toml config/bot.toml   # then fill in the real addresses
