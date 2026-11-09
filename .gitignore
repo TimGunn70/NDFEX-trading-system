@@ -12,7 +12,6 @@ pnl.txt
 .vscode/
 .idea/
 .cache/
-AUDIT.md
+docs/ARCHITECTURE.md
 CLAUDE.md
-# Real config stays local; config/bot.example.toml is the template
 config/bot.toml
