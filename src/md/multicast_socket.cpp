@@ -9,7 +9,8 @@
 #include <cstring>
 #include <iostream>
 
-// Changed to return -1 instead of exiting when a system call fails, also logged setsockopt failure
+// Any failure that leaves the socket unbound, blocking, or outside the group is fatal.
+// Any other scenario is simply logged, since they are only socket options that degrade performance
 int create_multicast_socket(const char* mcast_addr, int port, const char* local_ip) {
     int fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd < 0) {
