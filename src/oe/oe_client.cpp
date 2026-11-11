@@ -104,6 +104,9 @@ bool OEClient::read_response(char* buf, size_t buf_cap, size_t& out_len) {
     }
 }
 
+// TODO(C7): This function returns false both for a REJECT and for a dead connection (framing failure).
+// As a result, callers can't distinguish "keep trading" from "stop."
+// Planning to create an enum return, and close the fd and stop trading on a connection failure
 bool OEClient::wait_for_response() {
     char buf[256];
     size_t len;
