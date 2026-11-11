@@ -85,9 +85,13 @@ bool send_all(int fd, const void* buf, size_t len) {
     const char* ptr = static_cast<const char *>(buf);
     size_t remaining = len;
 
+    // Continues looping until all bytes are sent, since fewer bytes may be sent than required
     while (remaining > 0) {
         ssize_t sent = send(fd, ptr, remaining, flags);
 
+        // Exits if a real error (e.g. EPIPE) occurs
+        // Retries if the error is EINTR (interrupted by a signal)
+        // A blocking send() waits rather than returning 0, so sent = 0 shouldn't happen
         if (sent == -1 && errno != EINTR) {
             return false;
         }

@@ -26,4 +26,5 @@ FrameReadResult read_frame(int fd, char* buf, size_t buf_cap, size_t& out_len);
 // True means all bytes were sent, false produces an errno.
 // This function requires disable_sigpipe(fd) to succeed, so a closed peer returns false
 // instead of killing the process.
+// This function also assumes that the socket is blocking. On a non-blocking socket, EAGAIN would be reported as failure.
 [[nodiscard]] bool send_all(int fd, const void* buf, size_t len);
