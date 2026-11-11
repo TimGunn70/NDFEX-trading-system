@@ -65,13 +65,17 @@ void SymbolManager::on_fill(uint32_t symbol_id, SIDE side,
     else
         s.position.fetch_sub(static_cast<int32_t>(qty), std::memory_order_release);
 
+    // Closing part realizes PnL against the old average entry, and the opening starts a new average entry at
+    // the fill's price. For example, if you're long 3 and sell 5, then you are reducing.
+    // qty = 5, and old_pos = 3, therefore closing_qty = min(5, 3) = 3
+    // opening_qty = 2, so the position ends short 2.
     bool reducing = (side == SIDE::SELL && old_pos > 0) ||
                     (side == SIDE::BUY  && old_pos < 0);
 
     uint32_t closing_qty = 0;
 
     if (reducing) {
-        closing_qty = std::min(qty, static_cast<uint32_t>(std::abs(old_pos)));
+        closing_qty = std::min(qty, static_cast<uint32_t>(std::abs(old_pos))); // Can't close out more than you hold
     }
 
     uint32_t opening_qty = qty - closing_qty;
@@ -82,6 +86,9 @@ void SymbolManager::on_fill(uint32_t symbol_id, SIDE side,
 
     // Update average entry price
     if (opening_qty > 0) {
+        // A position can either be opened from flat or flipped through zero, both start a fresh average entry at the fill price
+        // A flip can't blend since the old position's price is not the same as the new position's
+        // (e.g. if you're long 3 at 100 and sell 5 at 110, then the short's average entry should be 110, not 104)
         bool new_position = old_pos == 0 || closing_qty > 0;
 
         if (new_position) {

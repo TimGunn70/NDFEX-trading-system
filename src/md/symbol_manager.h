@@ -113,6 +113,8 @@ private:
 
     std::atomic<double> total_pnl_{0.0};
 
+    // It is safe to use a double instead of a std::atomic here since only the thread running on_fill changes it
+    // Could break if two threads attempt to change at the same time, or if one writes while the other reads TODO(M1)
     std::array<double, 14> avg_entry_price_{};
 
     SymbolSlot&       slot(uint32_t symbol_id);
