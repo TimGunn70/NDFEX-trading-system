@@ -112,6 +112,10 @@ void run_listener(SymbolManager& sm, const Config::MarketData& md, std::atomic<b
                     memcpy(buf, bm.data, bm.length);
 
                     md_header* hdr = reinterpret_cast<md_header*>(buf);
+
+                    // Validate the packet before reading any message fields since buf is reused, so
+                    // a short datagram leaves the previous message's bytes in the tail.
+                    // This silently corrupts the book without a crash or an ASan report (P6).
                     MdPacketResult r = validate_packet(buf, bm.length);
 
                     if (r == MdPacketResult::OK) {
@@ -219,6 +223,7 @@ void run_listener(SymbolManager& sm, const Config::MarketData& md, std::atomic<b
             }
 
             // ── Normal market data ────────────────────────────────────────────
+            // Same check as the drain path (P6).
             MdPacketResult r = validate_packet(buf, static_cast<size_t>(bytes));
             if (r != MdPacketResult::OK) {
                 std::cerr << "[Listener] Dropped " << FEED_NAMES[i] << " packet ("
