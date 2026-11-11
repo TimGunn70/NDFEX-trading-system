@@ -38,6 +38,9 @@ FrameReadResult read_frame(int fd, char* buf, size_t buf_cap, size_t& out_len) {
         total += n;
     }
 
+    // Both checks must run before hdr.length - sizeof(hdr) below. 
+    // A length above buf_cap would make recv write past buf.
+    // A short length would wrap the size_t, and recv would overflow buf (P2).
     if (hdr.length > buf_cap) {
         return FrameReadResult::LENGTH_EXCEEDS_BUFFER;
     }
